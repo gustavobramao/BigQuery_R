@@ -1,0 +1,84 @@
+
+library(bigrquery) 
+library(dplyr) 
+library(DBI)
+library(ggplot2)
+library(bigQueryR)
+
+print("TEST PACKAGES IF ALL IS GOOD!")
+
+## BiGQuery Setup
+library(googleAuthR)
+library(searchConsoleR)
+options(googleAuthR.scopes.selected = "https://www.googleapis.com/auth/bigquery") 
+gar_auth_service("conn.json")
+## END BiGQuery Setup
+
+  # BigQuery Auth
+  bq_auth(path = "conn.json")
+  projectid<-'uts-mdsi'
+  datasetid<-'stds_assignment'
+  bq_conn <-  dbConnect(bigquery(), 
+                        project = "authentic-codex-225113",
+                        dataset = "monaliza_bi", 
+                        use_legacy_sql = FALSE
+  )
+  
+  bigrquery::dbListTables(bq_conn)
+  brand 		= "BB_UAE"
+  
+  sql_query = sprintf("            
+		 SELECT * FROM ( 
+
+		 	( SELECT
+				  dc.date as date,
+				  session,
+	        	  cost,
+				  orders,
+				  low,
+				  medium,
+				  high,
+				  seasonal,
+				  customers,
+				  total_cost
+				  FROM
+						(SELECT
+							  date, session, cost , orders, brand_country, all_users as customers,SUM(affiliate_cost + cost) as total_cost
+							FROM
+							  `authentic-codex-225113.monaliza_bi.daily_cost_session_orders`
+							where brand_country='%s' 
+							GROUP BY
+							  1,2,3,4,5,6
+							order by 1
+						) as dc	
+				join 
+						(SELECT
+								date,
+								low,
+								medium,
+								high,
+								seasonal
+								FROM
+								  `authentic-codex-225113.monaliza_bi.promotions_calendar_bbw`
+								where brand= '%s' and iteration=1
+								order by 1
+
+						) as ga
+
+		  on dc.date = ga.date 
+				group by 1,2,3,4,5,6,7,8,9,10
+				order by 1 asc
+			)
+		)
+		WHERE date between '2019-04-01' and '2019-10-25'		
+		order by date asc			
+	  ",brand,brand)
+  
+  
+  offence_qtr <- bq_project_query('authentic-codex-225113', sql_query)
+  
+  DF = bq_table_download(offence_qtr)
+  print(DF)
+  
+
+
